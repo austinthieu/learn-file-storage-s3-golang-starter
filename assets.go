@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -17,14 +20,14 @@ func (cfg apiConfig) ensureAssetsDir() error {
 }
 
 func getAssetPath(mediaType string) string {
-	key := make([]byte, 32)
-	_, err := rand.Read(key)
+	base := make([]byte, 32)
+	_, err := rand.Read(base)
 	if err != nil {
 		panic("failed to generate random bytes")
 	}
-	fileName := base64.RawURLEncoding.EncodeToString(key)
+	id := base64.RawURLEncoding.EncodeToString(base)
 	ext := mediaTypeToExt(mediaType)
-	return fmt.Sprintf("%s%s", fileName, ext)
+	return fmt.Sprintf("%s%s", id, ext)
 }
 
 func (cfg apiConfig) getAssetDiskPath(assetPath string) string {
@@ -41,4 +44,45 @@ func mediaTypeToExt(mediaType string) string {
 		return ".bin"
 	}
 	return "." + parts[1]
+}
+
+func (cfg apiConfig) getS3URL(key string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, key)
+}
+
+func getVideoAspectRatio(filePath string) (string, error) {
+	type Stream struct {
+		Streams []struct {
+			Height      int    `json:"height"`
+			Width       int    `json:"width"`
+			AspectRatio string `json:"display_aspect_ratio"`
+		}
+	}
+	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	var stream Stream
+	if err := json.Unmarshal(out.Bytes(), &stream); err != nil {
+		return "", err
+	}
+
+	return stream.Streams[0].AspectRatio, nil
+}
+
+func getPrefix(aspectRatio string) string {
+	switch aspectRatio {
+	case "16:9":
+		return "landscape"
+	case "9:16":
+		return "portrait"
+	default:
+		return "other"
+	}
 }
