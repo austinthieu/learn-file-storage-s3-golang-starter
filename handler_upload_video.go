@@ -123,11 +123,11 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s3URL := cfg.getS3URL(key)
-	video.VideoURL = &s3URL
+	url := fmt.Sprintf("https://%s/%s", cfg.s3CfDistribution, key)
+	video.VideoURL = &url
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't update video URL", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
 		return
 	}
 

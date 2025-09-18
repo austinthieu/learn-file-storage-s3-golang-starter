@@ -46,10 +46,6 @@ func mediaTypeToExt(mediaType string) string {
 	return "." + parts[1]
 }
 
-func (cfg apiConfig) getS3URL(key string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, key)
-}
-
 func getVideoAspectRatio(filePath string) (string, error) {
 	type Stream struct {
 		Streams []struct {
@@ -85,16 +81,4 @@ func getPrefix(aspectRatio string) string {
 	default:
 		return "other"
 	}
-}
-
-func processVideoForFastStart(filepath string) (string, error) {
-	outputPath := filepath + ".processing"
-	cmd := exec.Command("ffmpeg", "-i", filepath, "-c", "copy", "-movflags", "faststart", "-f", "mp4", outputPath)
-
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-
-	return outputPath, nil
 }
